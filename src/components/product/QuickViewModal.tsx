@@ -31,8 +31,10 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
   const [sizeError, setSizeError] = useState(false);
 
   const isLiked = isInWishlist(product.id);
+  const isOutOfStock = (Number(product.stock) || 0) <= 0;
 
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
     if (!selectedSize) {
       setSizeError(true);
       return;
@@ -122,11 +124,15 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                       {formatINR(product.originalPrice)}
                     </span>
                   )}
-                  {product.stock <= 5 && (
+                  {isOutOfStock ? (
+                    <span className="text-[11px] text-rose-700 font-semibold uppercase tracking-wider">
+                      Sold Out
+                    </span>
+                  ) : product.stock <= 5 ? (
                     <span className="text-[11px] text-amber-700 font-medium">
                       Only {product.stock} left in stock
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <p className="text-xs text-brand-muted mb-6 leading-relaxed line-clamp-3">
@@ -182,12 +188,16 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                       <button
                         key={size}
                         type="button"
+                        disabled={isOutOfStock}
                         onClick={() => {
+                          if (isOutOfStock) return;
                           setSelectedSize(size);
                           setSizeError(false);
                         }}
                         className={`py-2 text-xs uppercase tracking-wider font-medium border transition-colors ${
-                          selectedSize === size
+                          isOutOfStock
+                            ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed line-through'
+                            : selectedSize === size
                             ? 'bg-black text-white border-black'
                             : 'bg-white text-neutral-800 border-neutral-300 hover:border-black'
                         }`}
@@ -196,7 +206,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                       </button>
                     ))}
                   </div>
-                  {sizeError && (
+                  {sizeError && !isOutOfStock && (
                     <p className="text-xs text-rose-600 mt-1.5 font-medium">
                       Please select a size to proceed.
                     </p>
@@ -206,19 +216,21 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                 {/* Quantity */}
                 <div className="flex items-center gap-4 mb-6">
                   <span className="text-xs uppercase tracking-wider text-neutral-600 font-medium">Quantity:</span>
-                  <div className="flex items-center border border-neutral-300">
+                  <div className={`flex items-center border border-neutral-300 ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}>
                     <button
                       type="button"
+                      disabled={isOutOfStock}
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-2.5 py-1 text-neutral-500 hover:text-black"
+                      className="px-2.5 py-1 text-neutral-500 hover:text-black disabled:cursor-not-allowed"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
-                    <span className="px-3 text-xs font-medium">{quantity}</span>
+                    <span className="px-3 text-xs font-medium">{isOutOfStock ? 0 : quantity}</span>
                     <button
                       type="button"
+                      disabled={isOutOfStock}
                       onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                      className="px-2.5 py-1 text-neutral-500 hover:text-black"
+                      className="px-2.5 py-1 text-neutral-500 hover:text-black disabled:cursor-not-allowed"
                     >
                       <Plus className="w-3 h-3" />
                     </button>
@@ -229,14 +241,24 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
               {/* Action Buttons */}
               <div className="space-y-3 pt-4 border-t border-neutral-100">
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    className="flex-1 py-3 bg-black text-white text-xs uppercase tracking-widest font-medium hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Add to Bag</span>
-                  </button>
+                  {isOutOfStock ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="flex-1 py-3 bg-neutral-200 text-neutral-400 text-xs uppercase tracking-widest font-medium cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <span>Sold Out</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="flex-1 py-3 bg-black text-white text-xs uppercase tracking-widest font-medium hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Add to Bag</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => toggleWishlist(product)}

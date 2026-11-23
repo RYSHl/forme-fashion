@@ -334,11 +334,12 @@ export const AdminProducts: React.FC = () => {
                 {/* Stock Level */}
                 <td className="py-3 px-4">
                   <span className={`inline-block px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider ${
-                    prod.stock <= 5 ? 'bg-rose-100 text-rose-800' :
-                    prod.stock <= 12 ? 'bg-amber-100 text-amber-800' :
+                    prod.stock <= 0 ? 'bg-rose-600 text-white shadow-xs' :
+                    prod.stock <= 5 ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                    prod.stock <= 12 ? 'bg-neutral-100 text-neutral-800' :
                     'bg-emerald-100 text-emerald-800'
                   }`}>
-                    {prod.stock} Units
+                    {prod.stock <= 0 ? 'Out of Stock (0)' : `${prod.stock} Units`}
                   </span>
                 </td>
 

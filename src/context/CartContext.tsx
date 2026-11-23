@@ -34,6 +34,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items]);
 
   const addToCart = (newItem: Omit<CartItem, 'id'>) => {
+    if (Number(newItem.stock) <= 0) {
+      showToast('Out of Stock', 'error', `${newItem.name} is currently sold out.`);
+      return;
+    }
+
     // Generate unique ID for this specific product + size + color combination
     const variantId = `${newItem.productId}-${newItem.size}-${newItem.color.name.replace(/\s+/g, '').toLowerCase()}`;
 

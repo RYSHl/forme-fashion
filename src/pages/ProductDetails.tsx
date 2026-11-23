@@ -79,6 +79,7 @@ export const ProductDetails: React.FC = () => {
   }
 
   const isLiked = isInWishlist(product.id);
+  const isOutOfStock = (Number(product.stock) || 0) <= 0;
   const relatedProducts = productService.getRelatedProducts(product.id, product.category, 4);
 
   // Recently viewed
@@ -89,6 +90,11 @@ export const ProductDetails: React.FC = () => {
     .filter(Boolean) as Product[];
 
   const handleAddToCart = (shouldRedirectToCheckout: boolean = false) => {
+    if (isOutOfStock) {
+      showToast('Out of Stock', 'error', 'This garment is currently sold out.');
+      return;
+    }
+
     if (!selectedSize) {
       setSizeError(true);
       showToast('Please select a size', 'error', 'Choose your preferred size before adding to bag.');
@@ -254,12 +260,16 @@ export const ProductDetails: React.FC = () => {
                   <button
                     key={size}
                     type="button"
+                    disabled={isOutOfStock}
                     onClick={() => {
+                      if (isOutOfStock) return;
                       setSelectedSize(size);
                       setSizeError(false);
                     }}
                     className={`py-3 text-xs uppercase tracking-wider font-medium border transition-colors ${
-                      selectedSize === size
+                      isOutOfStock
+                        ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed line-through'
+                        : selectedSize === size
                         ? 'bg-black text-white border-black shadow-xs'
                         : 'bg-white text-neutral-800 border-neutral-300 hover:border-black'
                     }`}
@@ -268,7 +278,7 @@ export const ProductDetails: React.FC = () => {
                   </button>
                 ))}
               </div>
-              {sizeError && (
+              {sizeError && !isOutOfStock && (
                 <p className="text-xs text-rose-600 mt-2 font-medium flex items-center gap-1">
                   * Please choose a size to add this garment to your bag.
                 </p>
@@ -277,7 +287,12 @@ export const ProductDetails: React.FC = () => {
 
             {/* Stock Availability Indicator */}
             <div className="text-xs">
-              {product.stock <= 4 ? (
+              {isOutOfStock ? (
+                <div className="bg-rose-50 border border-rose-200 py-2.5 px-3.5 text-xs text-rose-900 flex items-center justify-between">
+                  <span className="font-semibold uppercase tracking-wider">Out of Stock</span>
+                  <span className="text-[11px] text-rose-700">This garment is currently sold out.</span>
+                </div>
+              ) : product.stock <= 4 ? (
                 <p className="text-amber-800 font-medium bg-amber-50 border border-amber-200 py-1.5 px-3">
                   Low Stock — Only {product.stock} items remaining in our central fulfillment center.
                 </p>
@@ -292,20 +307,22 @@ export const ProductDetails: React.FC = () => {
             {/* Quantity Selector */}
             <div className="flex items-center gap-4 pt-1">
               <span className="text-xs uppercase tracking-wider text-neutral-600 font-medium">Quantity:</span>
-              <div className="flex items-center border border-neutral-300 bg-white">
+              <div className={`flex items-center border border-neutral-300 bg-white ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}>
                 <button
                   type="button"
+                  disabled={isOutOfStock}
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-3 py-1.5 text-neutral-500 hover:text-black"
+                  className="px-3 py-1.5 text-neutral-500 hover:text-black disabled:cursor-not-allowed"
                   aria-label="Decrease quantity"
                 >
                   <Minus className="w-3 h-3" />
                 </button>
-                <span className="px-4 text-xs font-medium">{quantity}</span>
+                <span className="px-4 text-xs font-medium">{isOutOfStock ? 0 : quantity}</span>
                 <button
                   type="button"
+                  disabled={isOutOfStock}
                   onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                  className="px-3 py-1.5 text-neutral-500 hover:text-black"
+                  className="px-3 py-1.5 text-neutral-500 hover:text-black disabled:cursor-not-allowed"
                   aria-label="Increase quantity"
                 >
                   <Plus className="w-3 h-3" />
@@ -316,14 +333,24 @@ export const ProductDetails: React.FC = () => {
             {/* Action Buttons: Add to Cart, Buy Now, Wishlist */}
             <div className="space-y-3 pt-2">
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleAddToCart(false)}
-                  className="flex-1 py-3.5 bg-black text-white text-xs uppercase tracking-widest font-semibold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Add to Bag</span>
-                </button>
+                {isOutOfStock ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 py-3.5 bg-neutral-200 text-neutral-400 text-xs uppercase tracking-widest font-semibold cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <span>Sold Out</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleAddToCart(false)}
+                    className="flex-1 py-3.5 bg-black text-white text-xs uppercase tracking-widest font-semibold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Add to Bag</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => toggleWishlist(product)}
@@ -346,13 +373,15 @@ export const ProductDetails: React.FC = () => {
               </div>
 
               {/* Buy Now (Starts checkout flow immediately) */}
-              <button
-                type="button"
-                onClick={() => handleAddToCart(true)}
-                className="w-full py-3.5 border border-black bg-brand-soft text-black text-xs uppercase tracking-widest font-semibold hover:bg-neutral-100 transition-colors"
-              >
-                Buy Now (Proceed to Checkout)
-              </button>
+              {!isOutOfStock && (
+                <button
+                  type="button"
+                  onClick={() => handleAddToCart(true)}
+                  className="w-full py-3.5 border border-black bg-brand-soft text-black text-xs uppercase tracking-widest font-semibold hover:bg-neutral-100 transition-colors"
+                >
+                  Buy Now (Proceed to Checkout)
+                </button>
+              )}
             </div>
 
             {/* Accordions: Product Details, Shipping & Returns, Materials & Care */}

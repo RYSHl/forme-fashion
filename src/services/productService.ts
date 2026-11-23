@@ -292,6 +292,41 @@ export const productService = {
     }
   },
 
+  reduceStockForOrder: (items: Array<{ productId: string; quantity: number }>): void => {
+    const products = productService.getAllProducts();
+    let hasChanges = false;
+
+    items.forEach(item => {
+      const idx = products.findIndex(p => p.id === item.productId);
+      if (idx !== -1) {
+        const currentStock = Number(products[idx].stock) || 0;
+        const newStock = Math.max(0, currentStock - item.quantity);
+        products[idx] = { ...products[idx], stock: newStock };
+        hasChanges = true;
+
+        // Async update Supabase stock
+        if (isSupabaseConfigured() && supabase) {
+          supabase
+            .from('products')
+            .update({ stock: newStock })
+            .eq('id', item.productId)
+            .then(({ error }) => {
+              if (error) console.warn('Supabase stock decrement note:', error.message);
+            });
+        }
+      }
+    });
+
+    if (hasChanges) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+  },
+
   resetToDefaultCatalog: (): Product[] => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_PRODUCTS));
     return INITIAL_PRODUCTS;

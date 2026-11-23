@@ -16,6 +16,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const isLiked = isInWishlist(product.id);
+  const isOutOfStock = (Number(product.stock) || 0) <= 0;
   const primaryImage = product.images[activeImageIndex] || product.images[0];
   const secondaryImage = product.images[1] || product.images[0];
 
@@ -44,21 +45,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
             src={isHovered && product.images.length > 1 ? secondaryImage : primaryImage}
             alt={product.name}
             loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${
+              isOutOfStock ? 'opacity-80 grayscale-[20%]' : ''
+            }`}
           />
         </Link>
 
         {/* Badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
-          {product.isNew && (
-            <span className="bg-white text-black text-[9px] md:text-[10px] uppercase tracking-widest font-medium px-2 py-0.5 shadow-xs">
-              New
+          {isOutOfStock ? (
+            <span className="bg-neutral-900 text-white text-[9px] md:text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 shadow-xs">
+              Sold Out
             </span>
-          )}
-          {product.isBestseller && (
-            <span className="bg-black text-white text-[9px] md:text-[10px] uppercase tracking-widest font-medium px-2 py-0.5 shadow-xs">
-              Bestseller
-            </span>
+          ) : (
+            <>
+              {product.isNew && (
+                <span className="bg-white text-black text-[9px] md:text-[10px] uppercase tracking-widest font-medium px-2 py-0.5 shadow-xs">
+                  New
+                </span>
+              )}
+              {product.isBestseller && (
+                <span className="bg-black text-white text-[9px] md:text-[10px] uppercase tracking-widest font-medium px-2 py-0.5 shadow-xs">
+                  Bestseller
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -122,7 +133,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
               </span>
             )}
           </div>
-          <span className="text-[10px] text-brand-muted uppercase tracking-wider">{product.fit}</span>
+          {isOutOfStock ? (
+            <span className="text-[10px] text-rose-700 font-semibold uppercase tracking-wider">Sold Out</span>
+          ) : (
+            <span className="text-[10px] text-brand-muted uppercase tracking-wider">{product.fit}</span>
+          )}
         </div>
       </div>
     </div>

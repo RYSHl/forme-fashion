@@ -1,6 +1,8 @@
 import { Order, OrderStatus } from '../types/order';
 import { INITIAL_ORDERS } from '../data/mockOrders';
 import { generateOrderId } from '../utils/formatters';
+import { productService } from './productService';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const ORDERS_STORAGE_KEY = 'forme_orders';
 
@@ -81,6 +83,38 @@ export const orderService = {
 
     const updated = [newOrder, ...orders];
     localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updated));
+
+    // 1. Immediately deduct purchased stock from product inventory (Local + Cloud)
+    if (orderData.items && orderData.items.length > 0) {
+      productService.reduceStockForOrder(orderData.items);
+    }
+
+    // 2. Async save order to Supabase if configured
+    if (isSupabaseConfigured() && supabase) {
+      supabase
+        .from('orders')
+        .insert({
+          id: newOrder.id,
+          date: newOrder.date,
+          items: newOrder.items,
+          shipping_address: newOrder.shippingAddress,
+          delivery_method: newOrder.deliveryMethod,
+          payment_method: newOrder.paymentMethod,
+          payment_status: newOrder.paymentStatus,
+          subtotal: newOrder.subtotal,
+          discount: newOrder.discount,
+          shipping_fee: newOrder.shippingFee,
+          total: newOrder.total,
+          status: newOrder.status,
+          timeline: newOrder.timeline,
+          tracking_number: newOrder.trackingNumber,
+          notes: newOrder.notes,
+        })
+        .then(({ error }) => {
+          if (error) console.warn('Supabase order insert note:', error.message);
+        });
+    }
+
     return newOrder;
   },
 
