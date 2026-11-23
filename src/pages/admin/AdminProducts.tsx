@@ -4,12 +4,14 @@ import {
   Search, 
   Edit, 
   Trash2, 
-  X 
+  X,
+  Upload 
 } from 'lucide-react';
 import { productService } from '../../services/productService';
 import { Product, ProductCategory, ProductSize, ProductFit, ProductColor } from '../../types/product';
 import { formatINR } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
+import { uploadProductImage, isSupabaseConfigured } from '../../lib/supabase';
 
 const ALL_SIZES: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const ALL_FITS: ProductFit[] = ['Boxy', 'Relaxed', 'Regular', 'Slim', 'Straight', 'Wide-Leg'];
@@ -24,6 +26,7 @@ export const AdminProducts: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -185,6 +188,40 @@ export const AdminProducts: React.FC = () => {
         images: [...prev.images, prev.imageInput.trim()],
         imageInput: '',
       }));
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (isSupabaseConfigured()) {
+      try {
+        setIsUploadingImage(true);
+        const publicUrl = await uploadProductImage(file);
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, publicUrl],
+        }));
+        showToast('Image Uploaded to Cloud', 'success');
+      } catch (err: any) {
+        console.error('Upload error:', err);
+        showToast('Upload Failed', 'error', err.message || 'Storage error');
+      } finally {
+        setIsUploadingImage(false);
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setFormData(prev => ({
+            ...prev,
+            images: [...prev.images, reader.result as string],
+          }));
+          showToast('Image Added (Local)', 'info', 'Saved locally. Add Supabase keys to host images on the cloud.');
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -517,22 +554,38 @@ export const AdminProducts: React.FC = () => {
 
               {/* Image URL Input */}
               <div>
-                <label className="block uppercase tracking-wider text-neutral-600 mb-1 font-medium">Product Photography URL</label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="url"
-                    value={formData.imageInput}
-                    onChange={(e) => setFormData({ ...formData, imageInput: e.target.value })}
-                    placeholder="https://images.unsplash.com/..."
-                    className="flex-1 px-3 py-2 border border-neutral-300 focus:outline-none focus:border-black"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddImage}
-                    className="px-4 py-2 bg-neutral-900 text-white font-semibold uppercase tracking-wider"
-                  >
-                    Add URL
-                  </button>
+                <label className="block uppercase tracking-wider text-neutral-600 mb-1 font-medium">
+                  Product Photography (Paste URL or Upload File)
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="url"
+                      value={formData.imageInput}
+                      onChange={(e) => setFormData({ ...formData, imageInput: e.target.value })}
+                      placeholder="Paste image URL (https://...)"
+                      className="flex-1 px-3 py-2 border border-neutral-300 focus:outline-none focus:border-black"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddImage}
+                      className="px-4 py-2 bg-neutral-900 text-white font-semibold uppercase tracking-wider shrink-0"
+                    >
+                      Add URL
+                    </button>
+                  </div>
+
+                  <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 text-black uppercase font-semibold tracking-wider cursor-pointer transition-colors shrink-0">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingImage ? 'Uploading...' : 'Upload File'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      disabled={isUploadingImage}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
 
                 {/* Previews of added images */}

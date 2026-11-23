@@ -1,9 +1,56 @@
 import { Product, ProductCategory, ProductFilters, ProductSortOption } from '../types/product';
 import { INITIAL_PRODUCTS } from '../data/products';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEY = 'forme_products_catalog';
 
+// Helper to map DB row to Product interface
+const mapRowToProduct = (d: any): Product => ({
+  id: d.id,
+  sku: d.sku,
+  name: d.name,
+  category: d.category,
+  subcategory: d.subcategory,
+  price: Number(d.price),
+  originalPrice: d.original_price ? Number(d.original_price) : undefined,
+  description: d.description || '',
+  details: Array.isArray(d.details) ? d.details : [],
+  composition: d.composition || '',
+  careInstructions: Array.isArray(d.care_instructions) ? d.care_instructions : [],
+  fit: d.fit || 'Regular',
+  colors: Array.isArray(d.colors) ? d.colors : [],
+  sizes: Array.isArray(d.sizes) ? d.sizes : [],
+  images: Array.isArray(d.images) ? d.images : [],
+  stock: Number(d.stock || 10),
+  isNew: !!d.is_new,
+  isBestseller: !!d.is_bestseller,
+  isTrending: !!d.is_trending,
+  createdAt: d.created_at || new Date().toISOString(),
+});
+
 export const productService = {
+  // Sync background catalog with Supabase if configured
+  syncWithSupabase: async (): Promise<Product[]> => {
+    if (!isSupabaseConfigured() || !supabase) {
+      return productService.getAllProducts();
+    }
+    try {
+      const { data, error } = await supabase.from('products').select('*');
+      if (error) {
+        console.warn('Supabase fetch notice (using cached catalog):', error.message);
+        return productService.getAllProducts();
+      }
+      if (data && data.length > 0) {
+        const mapped = data.map(mapRowToProduct);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('Supabase sync skipped, fallback to local', e);
+    }
+    return productService.getAllProducts();
+  },
+
   getAllProducts: (): Product[] => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -93,7 +140,6 @@ export const productService = {
         return [...list].sort((a, b) => b.price - a.price);
       case 'featured':
       default:
-        // sort by isBestseller/isNew first, then by date
         return [...list].sort((a, b) => {
           if (a.isBestseller && !b.isBestseller) return -1;
           if (!a.isBestseller && b.isBestseller) return 1;
@@ -151,6 +197,38 @@ export const productService = {
     };
     const updated = [newProduct, ...products];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    // Async write to Supabase if available
+    if (isSupabaseConfigured() && supabase) {
+      supabase
+        .from('products')
+        .insert({
+          id: newProduct.id,
+          sku: newProduct.sku,
+          name: newProduct.name,
+          category: newProduct.category,
+          subcategory: newProduct.subcategory,
+          price: newProduct.price,
+          original_price: newProduct.originalPrice,
+          description: newProduct.description,
+          details: newProduct.details,
+          composition: newProduct.composition,
+          care_instructions: newProduct.careInstructions,
+          fit: newProduct.fit,
+          colors: newProduct.colors,
+          sizes: newProduct.sizes,
+          images: newProduct.images,
+          stock: newProduct.stock,
+          is_new: newProduct.isNew,
+          is_bestseller: newProduct.isBestseller,
+          is_trending: newProduct.isTrending,
+          created_at: newProduct.createdAt,
+        })
+        .then(({ error }) => {
+          if (error) console.error('Supabase product insert notice:', error.message);
+        });
+    }
+
     return newProduct;
   },
 
@@ -163,6 +241,37 @@ export const productService = {
     const updated = [...products];
     updated[index] = product;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    // Async update to Supabase if available
+    if (isSupabaseConfigured() && supabase) {
+      supabase
+        .from('products')
+        .update({
+          sku: product.sku,
+          name: product.name,
+          category: product.category,
+          subcategory: product.subcategory,
+          price: product.price,
+          original_price: product.originalPrice,
+          description: product.description,
+          details: product.details,
+          composition: product.composition,
+          care_instructions: product.careInstructions,
+          fit: product.fit,
+          colors: product.colors,
+          sizes: product.sizes,
+          images: product.images,
+          stock: product.stock,
+          is_new: product.isNew,
+          is_bestseller: product.isBestseller,
+          is_trending: product.isTrending,
+        })
+        .eq('id', product.id)
+        .then(({ error }) => {
+          if (error) console.error('Supabase product update notice:', error.message);
+        });
+    }
+
     return product;
   },
 
@@ -170,6 +279,17 @@ export const productService = {
     const products = productService.getAllProducts();
     const updated = products.filter(p => p.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    // Async delete from Supabase if available
+    if (isSupabaseConfigured() && supabase) {
+      supabase
+        .from('products')
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('Supabase product delete notice:', error.message);
+        });
+    }
   },
 
   resetToDefaultCatalog: (): Product[] => {

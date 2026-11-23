@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
+import { productService } from './services/productService';
 import { Home } from './pages/Home';
 import { Collection } from './pages/Collection';
 import { ProductDetails } from './pages/ProductDetails';
@@ -21,6 +22,10 @@ import { AdminProducts } from './pages/admin/AdminProducts';
 import { AdminOrders } from './pages/admin/AdminOrders';
 
 export const App: React.FC = () => {
+  useEffect(() => {
+    productService.syncWithSupabase();
+  }, []);
+
   return (
     <Routes>
       {/* Storefront Routes with standard Layout shell */}
